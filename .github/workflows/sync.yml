@@ -11,12 +11,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Fetch the registration page content
+      # Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Install Puppeteer
+      - name: Install Puppeteer
+        run: npm install puppeteer
+
+      # Fetch the registration page content using Puppeteer
       - name: Fetch registration page
         run: |
-          curl -L https://ctxyouth.com/registration -o index.html
-          mkdir -p dist
-          mv index.html dist/index.html
+          node -e "
+          const puppeteer = require('puppeteer');
+          (async () => {
+            const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+            const page = await browser.newPage();
+            await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2' });
+            const content = await page.content();
+            require('fs').writeFileSync('dist/index.html', content);
+            await browser.close();
+          })();
+          "
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
