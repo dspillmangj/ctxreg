@@ -17,31 +17,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Ensure full history for file operations
+          fetch-depth: 0
 
       # Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'  # Cache npm dependencies
 
-      # Create package.json and package-lock.json
-      - name: Initialize package.json and lock file
-        run: |
-          echo '{
-            "name": "ctxreg-sync",
-            "version": "1.0.0",
-            "private": true,
-            "dependencies": {
-              "puppeteer": "24.15.0",
-              "website-scraper": "5.0.0",
-              "website-scraper-puppeteer": "2.0.2"
-            }
-          }' > package.json
-          npm install  # Generate package-lock.json
-          ls -la  # Debug: List files to confirm package-lock.json
-          cat package-lock.json  # Debug: Show contents of lock file
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install puppeteer@24.15.0 website-scraper@5.0.0 website-scraper-puppeteer@2.0.2
+        timeout-minutes: 5
 
       # Scrape the registration page with assets
       - name: Scrape registration page
@@ -80,7 +67,7 @@ jobs:
             }
           })();
           "
-        timeout-minutes: 5  # Limit scrape time
+        timeout-minutes: 5
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
@@ -89,5 +76,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
           destination_dir: .
-          keep_files: false  # Overwrite existing files
+          keep_files: false
           commit_message: Sync ctxyouth.com/registration with assets to index.html
