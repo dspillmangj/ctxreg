@@ -24,10 +24,20 @@ jobs:
           node-version: '20'
           cache: 'npm'  # Cache npm dependencies
 
-      # Install dependencies with specific versions
-      - name: Install dependencies
-        run: npm install puppeteer@24.15.0 website-scraper@5.0.0 website-scraper-puppeteer@2.0.2
-        timeout-minutes: 5  # Limit install time
+      # Create package.json and package-lock.json
+      - name: Initialize package.json
+        run: |
+          echo '{
+            "name": "ctxreg-sync",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "puppeteer": "24.15.0",
+              "website-scraper": "5.0.0",
+              "website-scraper-puppeteer": "2.0.2"
+            }
+          }' > package.json
+          npm install  # Generate package-lock.json
 
       # Scrape the registration page with assets
       - name: Scrape registration page
@@ -70,7 +80,7 @@ jobs:
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: actions/setup-node@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
