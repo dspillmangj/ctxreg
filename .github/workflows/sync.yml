@@ -33,7 +33,7 @@ jobs:
       # Scrape the registration page and download assets
       - name: Scrape registration page and assets
         run: |
-          mkdir -p dist
+          mkdir -p dist/ctxreg
           node -e "
           const puppeteer = require('puppeteer');
           const axios = require('axios');
@@ -46,51 +46,72 @@ jobs:
               const page = await browser.newPage();
               await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2', timeout: 60000 });
               
-              // Get HTML and rewrite URLs
+              // Get HTML
               let content = await page.content();
-              content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
-              content = content.replace(/https:\/\/fonts\.googleapis\.com\//g, '/fonts.googleapis/');
               
               // Extract asset URLs
               const assets = await page.evaluate(() => {
                 const urls = [];
-                const selectors = ['link[href]', 'script[src]', 'img[src]', 'source[src]', 'font[src]', 'style[src]'];
+                const selectors = [
+                  'link[href]',
+                  'script[src]',
+                  'img[src]',
+                  'source[src]',
+                  'font[src]',
+                  'style[src]',
+                  'image[srcset]',
+                  'video[src]',
+                  'audio[src]'
+                ];
                 selectors.forEach(sel => {
                   document.querySelectorAll(sel).forEach(el => {
-                    const url = el.href || el.src;
+                    const url = el.href || el.src || el.srcset;
                     if (url && !url.includes('/feed/') && !url.includes('/wp-json/') && !url.endsWith('/')) {
-                      urls.push(url);
+                      urls.push(url.split('?')[0]); // Remove query parameters
                     }
                   });
                 });
                 // Handle Google Fonts
                 document.querySelectorAll('link[href*=\"fonts.googleapis.com\"]').forEach(el => {
-                  urls.push(el.href);
+                  urls.push(el.href.split('?')[0]);
                 });
                 return [...new Set(urls)];
               });
               
-              // Download assets and strip query parameters
+              // Rewrite URLs in HTML and download assets
+              const baseUrl = 'https://ctxyouth.com/';
+              const cdnUrls = ['https://fonts.googleapis.com/'];
               for (const assetUrl of assets) {
                 try {
-                  const parsedUrl = url.parse(assetUrl);
-                  let relativePath = assetUrl.replace('https://ctxyouth.com/', '').replace('https://fonts.googleapis.com/', 'fonts.googleapis/');
-                  // Remove query parameters from filename
-                  relativePath = relativePath.split('?')[0];
+                  let relativePath;
+                  if (assetUrl.startsWith(baseUrl)) {
+                    relativePath = 'ctxreg/' + assetUrl.replace(baseUrl, '');
+                  } else if (assetUrl.startsWith('https://fonts.googleapis.com/')) {
+                    relativePath = 'ctxreg/fonts.googleapis/' + assetUrl.replace('https://fonts.googleapis.com/', '');
+                  } else {
+                    console.log('Skipping external URL:', assetUrl);
+                    continue;
+                  }
+                  // Clean relative path
+                  relativePath = relativePath.split('?')[0].replace(/^\/+/, '');
                   const filePath = path.join('dist', relativePath);
+                  console.log('Attempting to download:', assetUrl, 'to', filePath);
                   await fs.mkdir(path.dirname(filePath), { recursive: true });
                   const response = await axios.get(assetUrl, { responseType: 'arraybuffer', timeout: 10000 });
                   await fs.writeFile(filePath, response.data);
                   console.log('Downloaded:', relativePath);
-                  // Update HTML to remove query parameters
-                  content = content.replace(assetUrl, `/${relativePath}`);
+                  // Rewrite URL in HTML
+                  content = content.replace(new RegExp(assetUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), `/${relativePath}`);
                 } catch (err) {
                   console.error('Failed to download:', assetUrl, err.message);
                 }
               }
               
+              // Rewrite base URL in HTML
+              content = content.replace(/https:\/\/ctxyouth\.com\//g, '/ctxreg/');
+              
               // Save HTML
-              await fs.writeFile('dist/index.html', content);
+              await fs.writeFile('dist/ctxreg/index.html', content);
               // Debug: List dist contents
               const files = await fs.readdir('dist', { recursive: true });
               console.log('Dist contents:', files);
@@ -109,7 +130,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: dist
+          publish_dir: dist/ctxreg
           destination_dir: .
           keep_files: false
           commit_message: Sync ctxyouth.com/registration with assets to index.html
