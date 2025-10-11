@@ -39,6 +39,7 @@ jobs:
           const axios = require('axios');
           const fs = require('fs').promises;
           const path = require('path');
+          const url = require('url');
           (async () => {
             try {
               const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
@@ -48,6 +49,7 @@ jobs:
               // Get HTML and rewrite URLs
               let content = await page.content();
               content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
+              content = content.replace(/https:\/\/fonts\.googleapis\.com\//g, '/fonts.googleapis/');
               
               // Extract asset URLs
               const assets = await page.evaluate(() => {
@@ -61,36 +63,37 @@ jobs:
                     }
                   });
                 });
-                // Handle inline Google Fonts or CDN URLs
+                // Handle Google Fonts
                 document.querySelectorAll('link[href*=\"fonts.googleapis.com\"]').forEach(el => {
                   urls.push(el.href);
                 });
                 return [...new Set(urls)];
               });
               
-              // Download assets
-              for (const url of assets) {
+              // Download assets and strip query parameters
+              for (const assetUrl of assets) {
                 try {
-                  const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
-                  let relativePath = url.replace('https://ctxyouth.com/', '');
-                  if (url.includes('fonts.googleapis.com')) {
-                    relativePath = 'css/google-fonts.css';
-                  }
+                  const parsedUrl = url.parse(assetUrl);
+                  let relativePath = assetUrl.replace('https://ctxyouth.com/', '').replace('https://fonts.googleapis.com/', 'fonts.googleapis/');
+                  // Remove query parameters from filename
+                  relativePath = relativePath.split('?')[0];
                   const filePath = path.join('dist', relativePath);
                   await fs.mkdir(path.dirname(filePath), { recursive: true });
+                  const response = await axios.get(assetUrl, { responseType: 'arraybuffer', timeout: 10000 });
                   await fs.writeFile(filePath, response.data);
                   console.log('Downloaded:', relativePath);
-                  // Update HTML to point to local Google Fonts
-                  if (url.includes('fonts.googleapis.com')) {
-                    content = content.replace(url, `/${relativePath}`);
-                  }
+                  // Update HTML to remove query parameters
+                  content = content.replace(assetUrl, `/${relativePath}`);
                 } catch (err) {
-                  console.error('Failed to download:', url, err.message);
+                  console.error('Failed to download:', assetUrl, err.message);
                 }
               }
               
               // Save HTML
               await fs.writeFile('dist/index.html', content);
+              // Debug: List dist contents
+              const files = await fs.readdir('dist', { recursive: true });
+              console.log('Dist contents:', files);
               await browser.close();
               console.log('Successfully scraped page and saved HTML with assets');
             } catch (error) {
