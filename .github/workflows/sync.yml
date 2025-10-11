@@ -81,14 +81,16 @@ jobs:
                     console.log('Downloaded:', relativePath);
                     // Rewrite this specific asset URL in HTML
                     const escapedUrl = assetUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
-                    content = content.replace(new RegExp(escapedUrl.split('?')[0], 'g'), `/${relativePath}`);
+                    content = content.replace(new RegExp(escapedUrl.split('?')[0], 'g'), `/ctxreg/${relativePath}`);
                   } catch (err) {
                     console.error('Failed to download:', assetUrl, err.message);
                   }
                 }
                 
-                // Single rewrite for remaining ctxyouth.com URLs
-                content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
+                // Rewrite base URL in HTML
+                content = content.replace(/https:\/\/ctxyouth\.com\//g, '/ctxreg/');
+                // Handle relative URLs starting with /
+                content = content.replace(/(href|src|srcset)="\/([^"]*)"/g, '$1="/ctxreg/$2"');
                 
                 // Save HTML to dist root
                 await fs.writeFile('dist/index.html', content);
