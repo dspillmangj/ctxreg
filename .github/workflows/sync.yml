@@ -17,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Ensure full history for file operations
 
       # Set up Node.js
       - name: Set up Node.js
@@ -25,10 +25,10 @@ jobs:
         with:
           node-version: '20'
 
-      # Install dependencies
+      # Install dependencies with correct versions
       - name: Install dependencies
-        run: npm install puppeteer@24.15.0 website-scraper@5.0.0 website-scraper-puppeteer@2.0.2
-        timeout-minutes: 5
+        run: npm install puppeteer@24.15.0 website-scraper@5.0.0 website-scraper-puppeteer@1.1.0
+        timeout-minutes: 5  # Limit install time
 
       # Scrape the registration page with assets
       - name: Scrape registration page
@@ -67,7 +67,7 @@ jobs:
             }
           })();
           "
-        timeout-minutes: 5
+        timeout-minutes: 5  # Limit scrape time
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
@@ -76,5 +76,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
           destination_dir: .
-          keep_files: false
+          keep_files: false  # Overwrite existing files
           commit_message: Sync ctxyouth.com/registration with assets to index.html
