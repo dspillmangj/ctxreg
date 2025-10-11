@@ -4,14 +4,26 @@ on:
     - cron: '0 * * * *'  # Run hourly
   workflow_dispatch:  # Allow manual trigger
 jobs:
-  sync:
+  sync-registration:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      # Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Download from WordPress
-        run: curl -o index.html https://ctxyouth.com/registration
-      - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v5
+
+      # Fetch the registration page content
+      - name: Fetch registration page
+        run: |
+          curl -L https://ctxyouth.com/registration -o index.html
+          mkdir -p dist
+          mv index.html dist/index.html
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          commit_message: "Sync registration form from WordPress"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist
+          destination_dir: .
+          keep_files: false  # Overwrite existing files
+          commit_message: Sync ctxyouth.com/registration to index.html
