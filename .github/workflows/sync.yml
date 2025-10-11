@@ -52,24 +52,38 @@ jobs:
               // Extract asset URLs
               const assets = await page.evaluate(() => {
                 const urls = [];
-                document.querySelectorAll('link[href], script[src], img[src]').forEach(el => {
-                  const url = el.href || el.src;
-                  if (url && url.startsWith('https://ctxyouth.com/')) {
-                    urls.push(url);
-                  }
+                const selectors = ['link[href]', 'script[src]', 'img[src]', 'source[src]', 'font[src]', 'style[src]'];
+                selectors.forEach(sel => {
+                  document.querySelectorAll(sel).forEach(el => {
+                    const url = el.href || el.src;
+                    if (url && !url.includes('/feed/') && !url.includes('/wp-json/') && !url.endsWith('/')) {
+                      urls.push(url);
+                    }
+                  });
                 });
-                return urls;
+                // Handle inline Google Fonts or CDN URLs
+                document.querySelectorAll('link[href*=\"fonts.googleapis.com\"]').forEach(el => {
+                  urls.push(el.href);
+                });
+                return [...new Set(urls)];
               });
               
               // Download assets
               for (const url of assets) {
                 try {
-                  const response = await axios.get(url, { responseType: 'arraybuffer' });
-                  const relativePath = url.replace('https://ctxyouth.com/', '');
+                  const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+                  let relativePath = url.replace('https://ctxyouth.com/', '');
+                  if (url.includes('fonts.googleapis.com')) {
+                    relativePath = 'css/google-fonts.css';
+                  }
                   const filePath = path.join('dist', relativePath);
                   await fs.mkdir(path.dirname(filePath), { recursive: true });
                   await fs.writeFile(filePath, response.data);
                   console.log('Downloaded:', relativePath);
+                  // Update HTML to point to local Google Fonts
+                  if (url.includes('fonts.googleapis.com')) {
+                    content = content.replace(url, `/${relativePath}`);
+                  }
                 } catch (err) {
                   console.error('Failed to download:', url, err.message);
                 }
