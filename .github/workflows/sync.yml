@@ -25,29 +25,60 @@ jobs:
         with:
           node-version: '20'
 
-      # Install Puppeteer
-      - name: Install Puppeteer
-        run: npm install puppeteer@24.15.0
+      # Install Puppeteer and axios
+      - name: Install dependencies
+        run: npm install puppeteer@24.15.0 axios@1.7.7
         timeout-minutes: 3
 
-      # Scrape the registration page and rewrite URLs
-      - name: Scrape registration page
+      # Scrape the registration page and download assets
+      - name: Scrape registration page and assets
         run: |
           mkdir -p dist
           node -e "
           const puppeteer = require('puppeteer');
-          const fs = require('fs');
+          const axios = require('axios');
+          const fs = require('fs').promises;
+          const path = require('path');
           (async () => {
             try {
               const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
               const page = await browser.newPage();
               await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2', timeout: 60000 });
+              
+              // Get HTML and rewrite URLs
               let content = await page.content();
-              // Rewrite absolute URLs to relative for ctxyouth.com
               content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
-              fs.writeFileSync('dist/index.html', content);
+              
+              // Extract asset URLs
+              const assets = await page.evaluate(() => {
+                const urls = [];
+                document.querySelectorAll('link[href], script[src], img[src]').forEach(el => {
+                  const url = el.href || el.src;
+                  if (url && url.startsWith('https://ctxyouth.com/')) {
+                    urls.push(url);
+                  }
+                });
+                return urls;
+              });
+              
+              // Download assets
+              for (const url of assets) {
+                try {
+                  const response = await axios.get(url, { responseType: 'arraybuffer' });
+                  const relativePath = url.replace('https://ctxyouth.com/', '');
+                  const filePath = path.join('dist', relativePath);
+                  await fs.mkdir(path.dirname(filePath), { recursive: true });
+                  await fs.writeFile(filePath, response.data);
+                  console.log('Downloaded:', relativePath);
+                } catch (err) {
+                  console.error('Failed to download:', url, err.message);
+                }
+              }
+              
+              // Save HTML
+              await fs.writeFile('dist/index.html', content);
               await browser.close();
-              console.log('Successfully scraped page and saved HTML');
+              console.log('Successfully scraped page and saved HTML with assets');
             } catch (error) {
               console.error('Error scraping page:', error);
               process.exit(1);
@@ -64,4 +95,4 @@ jobs:
           publish_dir: dist
           destination_dir: .
           keep_files: false
-          commit_message: Sync ctxyouth.com/registration to index.html
+          commit_message: Sync ctxyouth.com/registration with assets to index.html
