@@ -16,6 +16,8 @@ jobs:
       # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensure full history for file operations
 
       # Set up Node.js
       - name: Set up Node.js
@@ -25,7 +27,7 @@ jobs:
           cache: 'npm'  # Cache npm dependencies
 
       # Create package.json and package-lock.json
-      - name: Initialize package.json
+      - name: Initialize package.json and lock file
         run: |
           echo '{
             "name": "ctxreg-sync",
@@ -38,6 +40,8 @@ jobs:
             }
           }' > package.json
           npm install  # Generate package-lock.json
+          ls -la  # Debug: List files to confirm package-lock.json
+          cat package-lock.json  # Debug: Show contents of lock file
 
       # Scrape the registration page with assets
       - name: Scrape registration page
@@ -80,7 +84,7 @@ jobs:
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
-        uses: actions/setup-node@v4
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
