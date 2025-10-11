@@ -18,28 +18,43 @@ jobs:
         with:
           node-version: '20'
 
-      # Install Puppeteer
-      - name: Install Puppeteer
-        run: npm install puppeteer
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install puppeteer website-scraper website-scraper-puppeteer
 
-      # Fetch the registration page content using Puppeteer
-      - name: Fetch registration page
+      # Scrape the registration page with assets
+      - name: Scrape registration page
         run: |
           mkdir -p dist
           node -e "
-          const puppeteer = require('puppeteer');
-          const fs = require('fs');
+          const scrape = require('website-scraper');
+          const PuppeteerPlugin = require('website-scraper-puppeteer');
           (async () => {
             try {
-              const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-              const page = await browser.newPage();
-              await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2', timeout: 60000 });
-              const content = await page.content();
-              fs.writeFileSync('dist/index.html', content);
-              await browser.close();
-              console.log('Successfully fetched and saved page');
+              await scrape({
+                urls: ['https://ctxyouth.com/registration'],
+                directory: 'dist',
+                plugins: [new PuppeteerPlugin({
+                  launchOptions: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] },
+                  scrollToBottom: { timeout: 10000, viewportN: 10 },
+                  blockNavigation: true
+                })],
+                recursive: true,
+                maxDepth: 1,
+                filenameGenerator: 'bySiteStructure',
+                subdirectories: [
+                  { directory: 'img', extensions: ['.jpg', '.png', '.svg', '.gif', '.webp'] },
+                  { directory: 'js', extensions: ['.js'] },
+                  { directory: 'css', extensions: ['.css'] },
+                  { directory: 'fonts', extensions: ['.woff', '.woff2', '.ttf', '.eot'] }
+                ],
+                request: {
+                  headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                }
+              });
+              console.log('Successfully scraped page and assets');
             } catch (error) {
-              console.error('Error fetching page:', error);
+              console.error('Error scraping page:', error);
               process.exit(1);
             }
           })();
@@ -53,4 +68,4 @@ jobs:
           publish_dir: dist
           destination_dir: .
           keep_files: false  # Overwrite existing files
-          commit_message: Sync ctxyouth.com/registration to index.html
+          commit_message: Sync ctxyouth.com/registration with assets to index.html
