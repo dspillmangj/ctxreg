@@ -34,95 +34,95 @@ jobs:
       - name: Scrape registration page and assets
         run: |
           mkdir -p dist/ctxreg
-          node -e "
-          const puppeteer = require('puppeteer');
-          const axios = require('axios');
-          const fs = require('fs').promises;
-          const path = require('path');
-          const url = require('url');
-          (async () => {
-            try {
-              const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-              const page = await browser.newPage();
-              await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2', timeout: 60000 });
-              
-              // Get HTML
-              let content = await page.content();
-              
-              // Extract asset URLs
-              const assets = await page.evaluate(() => {
-                const urls = [];
-                const selectors = [
-                  'link[href]',
-                  'script[src]',
-                  'img[src]',
-                  'source[src]',
-                  'font[src]',
-                  'style[src]',
-                  'image[srcset]',
-                  'video[src]',
-                  'audio[src]'
-                ];
-                selectors.forEach(sel => {
-                  document.querySelectorAll(sel).forEach(el => {
-                    const url = el.href || el.src || el.srcset;
-                    if (url && !url.includes('/feed/') && !url.includes('/wp-json/') && !url.endsWith('/')) {
-                      urls.push(url.split('?')[0]); // Remove query parameters
-                    }
+          node -e '
+            const puppeteer = require("puppeteer");
+            const axios = require("axios");
+            const fs = require("fs").promises;
+            const path = require("path");
+            const url = require("url");
+            (async () => {
+              try {
+                const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+                const page = await browser.newPage();
+                await page.goto("https://ctxyouth.com/registration", { waitUntil: "networkidle2", timeout: 60000 });
+                
+                // Get HTML
+                let content = await page.content();
+                
+                // Extract asset URLs
+                const assets = await page.evaluate(() => {
+                  const urls = [];
+                  const selectors = [
+                    "link[href]",
+                    "script[src]",
+                    "img[src]",
+                    "source[src]",
+                    "font[src]",
+                    "style[src]",
+                    "image[srcset]",
+                    "video[src]",
+                    "audio[src]"
+                  ];
+                  selectors.forEach(sel => {
+                    document.querySelectorAll(sel).forEach(el => {
+                      const url = el.href || el.src || el.srcset;
+                      if (url && !url.includes("/feed/") && !url.includes("/wp-json/") && !url.endsWith("/")) {
+                        urls.push(url.split("?")[0]);
+                      }
+                    });
                   });
+                  // Handle Google Fonts
+                  document.querySelectorAll("link[href*=\"fonts.googleapis.com\"]").forEach(el => {
+                    urls.push(el.href.split("?")[0]);
+                  });
+                  return [...new Set(urls)];
                 });
-                // Handle Google Fonts
-                document.querySelectorAll('link[href*=\"fonts.googleapis.com\"]').forEach(el => {
-                  urls.push(el.href.split('?')[0]);
-                });
-                return [...new Set(urls)];
-              });
-              
-              // Rewrite URLs in HTML and download assets
-              const baseUrl = 'https://ctxyouth.com/';
-              const cdnUrls = ['https://fonts.googleapis.com/'];
-              for (const assetUrl of assets) {
-                try {
-                  let relativePath;
-                  if (assetUrl.startsWith(baseUrl)) {
-                    relativePath = 'ctxreg/' + assetUrl.replace(baseUrl, '');
-                  } else if (assetUrl.startsWith('https://fonts.googleapis.com/')) {
-                    relativePath = 'ctxreg/fonts.googleapis/' + assetUrl.replace('https://fonts.googleapis.com/', '');
-                  } else {
-                    console.log('Skipping external URL:', assetUrl);
-                    continue;
+                
+                // Rewrite URLs in HTML and download assets
+                const baseUrl = "https://ctxyouth.com/";
+                const cdnUrls = ["https://fonts.googleapis.com/"];
+                for (const assetUrl of assets) {
+                  try {
+                    let relativePath;
+                    if (assetUrl.startsWith(baseUrl)) {
+                      relativePath = "ctxreg/" + assetUrl.replace(baseUrl, "");
+                    } else if (assetUrl.startsWith("https://fonts.googleapis.com/")) {
+                      relativePath = "ctxreg/fonts.googleapis/" + assetUrl.replace("https://fonts.googleapis.com/", "");
+                    } else {
+                      console.log("Skipping external URL:", assetUrl);
+                      continue;
+                    }
+                    // Clean relative path
+                    relativePath = relativePath.split("?")[0].replace(/^\\/+/, "");
+                    const filePath = path.join("dist", relativePath);
+                    console.log("Attempting to download:", assetUrl, "to", filePath);
+                    await fs.mkdir(path.dirname(filePath), { recursive: true });
+                    const response = await axios.get(assetUrl, { responseType: "arraybuffer", timeout: 10000 });
+                    await fs.writeFile(filePath, response.data);
+                    console.log("Downloaded:", relativePath);
+                    // Rewrite URL in HTML
+                    content = content.replace(new RegExp(assetUrl.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&"), "g"), `/${relativePath}`);
+                  } catch (err) {
+                    console.error("Failed to download:", assetUrl, err.message);
                   }
-                  // Clean relative path
-                  relativePath = relativePath.split('?')[0].replace(/^\/+/, '');
-                  const filePath = path.join('dist', relativePath);
-                  console.log('Attempting to download:', assetUrl, 'to', filePath);
-                  await fs.mkdir(path.dirname(filePath), { recursive: true });
-                  const response = await axios.get(assetUrl, { responseType: 'arraybuffer', timeout: 10000 });
-                  await fs.writeFile(filePath, response.data);
-                  console.log('Downloaded:', relativePath);
-                  // Rewrite URL in HTML
-                  content = content.replace(new RegExp(assetUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), `/${relativePath}`);
-                } catch (err) {
-                  console.error('Failed to download:', assetUrl, err.message);
                 }
+                
+                // Rewrite base URL in HTML
+                content = content.replace(/https:\\/\\/ctxyouth\\.com\\//g, "/ctxreg/");
+                
+                // Save HTML
+                await fs.writeFile("dist/ctxreg/index.html", content);
+                // Debug: List dist contents
+                const files = await fs.readdir("dist", { recursive: true });
+                console.log("Dist contents:", files);
+                await browser.close();
+                console.log("Successfully scraped page and saved HTML with assets");
+              } catch (error) {
+                console.error("Error scraping page:", error);
+                process.exit(1);
               }
-              
-              // Rewrite base URL in HTML
-              content = content.replace(/https:\/\/ctxyouth\.com\//g, '/ctxreg/');
-              
-              // Save HTML
-              await fs.writeFile('dist/ctxreg/index.html', content);
-              // Debug: List dist contents
-              const files = await fs.readdir('dist', { recursive: true });
-              console.log('Dist contents:', files);
-              await browser.close();
-              console.log('Successfully scraped page and saved HTML with assets');
-            } catch (error) {
-              console.error('Error scraping page:', error);
-              process.exit(1);
-            }
-          })();
-          "
+            })();
+          '
         timeout-minutes: 5
 
       # Deploy to GitHub Pages
