@@ -33,13 +33,12 @@ jobs:
       # Scrape the registration page and download assets
       - name: Scrape registration page and assets
         run: |
-          mkdir -p dist/ctxreg
+          mkdir -p dist
           node -e '''
             const puppeteer = require("puppeteer");
             const axios = require("axios");
             const fs = require("fs").promises;
             const path = require("path");
-            const url = require("url");
             (async () => {
               try {
                 const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox", "--disable-setuid-sandbox"] });
@@ -57,63 +56,44 @@ jobs:
                     "script[src]",
                     "img[src]",
                     "source[src]",
-                    "font[src]",
-                    "style[src]",
-                    "image[srcset]",
-                    "video[src]",
-                    "audio[src]"
+                    "font[src]"
                   ];
                   selectors.forEach(sel => {
                     document.querySelectorAll(sel).forEach(el => {
-                      const url = el.href || el.src || el.srcset;
-                      if (url && !url.includes("/feed/") && !url.includes("/wp-json/") && !url.endsWith("/")) {
+                      const url = el.href || el.src;
+                      if (url && url.startsWith("https://ctxyouth.com/") && !url.includes("/feed/") && !url.includes("/wp-json/")) {
                         urls.push(url.split("?")[0]);
                       }
                     });
                   });
-                  // Handle Google Fonts
-                  document.querySelectorAll("link[href*=\"fonts.googleapis.com\"]").forEach(el => {
-                    urls.push(el.href.split("?")[0]);
-                  });
                   return [...new Set(urls)];
                 });
                 
-                // Rewrite URLs in HTML and download assets
-                const baseUrl = "https://ctxyouth.com/";
-                const cdnUrls = ["https://fonts.googleapis.com/"];
+                // Download assets and rewrite URLs
                 for (const assetUrl of assets) {
                   try {
-                    let relativePath;
-                    if (assetUrl.startsWith(baseUrl)) {
-                      relativePath = "ctxreg/" + assetUrl.replace(baseUrl, "");
-                    } else if (assetUrl.startsWith("https://fonts.googleapis.com/")) {
-                      relativePath = "ctxreg/fonts.googleapis/" + assetUrl.replace("https://fonts.googleapis.com/", "");
-                    } else {
-                      console.log("Skipping external URL:", assetUrl);
-                      continue;
-                    }
-                    // Clean relative path
-                    relativePath = relativePath.split("?")[0].replace(/^\\+/, "");
+                    const relativePath = assetUrl.replace("https://ctxyouth.com/", "").split("?")[0];
                     const filePath = path.join("dist", relativePath);
-                    console.log("Attempting to download:", assetUrl, "to", filePath);
+                    console.log("Downloading:", assetUrl, "to", relativePath);
                     await fs.mkdir(path.dirname(filePath), { recursive: true });
                     const response = await axios.get(assetUrl, { responseType: "arraybuffer", timeout: 10000 });
                     await fs.writeFile(filePath, response.data);
                     console.log("Downloaded:", relativePath);
-                    // Rewrite URL in HTML
-                    content = content.replace(new RegExp(assetUrl.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&"), "g"), `/${relativePath}`);
+                    // Rewrite this specific asset URL in HTML
+                    const escapedUrl = assetUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\\\$&");
+                    content = content.replace(new RegExp(escapedUrl.split("?")[0], "g"), `/${relativePath}`);
                   } catch (err) {
                     console.error("Failed to download:", assetUrl, err.message);
                   }
                 }
                 
-                // Rewrite base URL in HTML
-                content = content.replace(/https:\/\/ctxyouth\.com\//g, "/ctxreg/");
-                // Handle relative URLs starting with /
-                content = content.replace(/(href|src|srcset)="\/([^"]*)"/g, "$1=\"/ctxreg/$2\"");
+                // Single rewrite for remaining ctxyouth.com URLs
+                content = content.replace(/https:\/\/ctxyouth\.com\//g, "/");
+                content = content.replace(/"/g, '"'); // Ensure proper quote handling
                 
-                // Save HTML
-                await fs.writeFile("dist/ctxreg/index.html", content);
+                // Save HTML to dist root
+                await fs.writeFile("dist/index.html", content);
+                
                 // Debug: List dist contents
                 const files = await fs.readdir("dist", { recursive: true });
                 console.log("Dist contents:", files);
@@ -129,10 +109,4 @@ jobs:
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: dist/ctxreg
-          destination_dir: .
-          keep_files: false
-          commit_message: Sync ctxyouth.com/registration with assets to index.html
+        uses: peaceiris/actions
