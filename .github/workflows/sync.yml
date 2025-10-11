@@ -55,12 +55,16 @@ jobs:
                     'link[href]',
                     'script[src]',
                     'img[src]',
+                    'img[srcset]',
                     'source[src]',
-                    'font[src]'
+                    'source[srcset]',
+                    'font[src]',
+                    '*[data-src]',
+                    '*[data-lazy-src]'
                   ];
                   selectors.forEach(sel => {
                     document.querySelectorAll(sel).forEach(el => {
-                      const url = el.href || el.src;
+                      const url = el.href || el.src || el.srcset || el.dataset.src || el.dataset.lazySrc;
                       if (url && url.startsWith('https://ctxyouth.com/') && !url.includes('/feed/') && !url.includes('/wp-json/')) {
                         urls.push(url.split('?')[0]);
                       }
@@ -87,8 +91,8 @@ jobs:
                   }
                 }
                 
-                // Rewrite base URL in HTML for non-asset URLs
-                content = content.replace(/https:\/\/ctxyouth\.com\//g, '/ctxreg/');
+                // Rewrite base URL in HTML for non-navigation attributes (exclude <a href>)
+                content = content.replace(/(src|srcset|data-src|data-lazy-src)="https:\/\/ctxyouth\.com\/([^"]*)"/g, '$1="/ctxreg/$2"');
                 
                 // Save HTML to dist root
                 await fs.writeFile('dist/index.html', content);
