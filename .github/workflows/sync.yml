@@ -1,12 +1,17 @@
-name: Sync Registration HTML
+name: Sync Registration Page to GitHub Pages
+
 on:
-  schedule:
-    - cron: '0 * * * *'  # Run hourly
+  push:
+    branches:
+      - main  # Trigger on push to main branch
   workflow_dispatch:  # Allow manual trigger
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
 
 jobs:
   sync-registration:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Prevent hanging
     steps:
       # Checkout the repository
       - name: Checkout repository
@@ -17,10 +22,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'  # Cache npm dependencies
 
-      # Install dependencies
+      # Install dependencies with specific versions
       - name: Install dependencies
-        run: npm install puppeteer website-scraper website-scraper-puppeteer
+        run: npm install puppeteer@24.15.0 website-scraper@5.0.0 website-scraper-puppeteer@2.0.2
+        timeout-minutes: 5  # Limit install time
 
       # Scrape the registration page with assets
       - name: Scrape registration page
@@ -35,7 +42,7 @@ jobs:
                 urls: ['https://ctxyouth.com/registration'],
                 directory: 'dist',
                 plugins: [new PuppeteerPlugin({
-                  launchOptions: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] },
+                  launchOptions: { headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] },
                   scrollToBottom: { timeout: 10000, viewportN: 10 },
                   blockNavigation: true
                 })],
@@ -59,6 +66,7 @@ jobs:
             }
           })();
           "
+        timeout-minutes: 5  # Limit scrape time
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
