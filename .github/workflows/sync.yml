@@ -11,13 +11,13 @@ on:
 jobs:
   sync-registration:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # Prevent hanging
+    timeout-minutes: 10  # Prevent hanging
     steps:
       # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Ensure full history for file operations
+          fetch-depth: 0
 
       # Set up Node.js
       - name: Set up Node.js
@@ -25,49 +25,36 @@ jobs:
         with:
           node-version: '20'
 
-      # Install dependencies with correct versions
-      - name: Install dependencies
-        run: npm install puppeteer@24.15.0 website-scraper@5.0.0 website-scraper-puppeteer@1.1.0
-        timeout-minutes: 5  # Limit install time
+      # Install Puppeteer
+      - name: Install Puppeteer
+        run: npm install puppeteer@24.15.0
+        timeout-minutes: 3
 
-      # Scrape the registration page with assets
+      # Scrape the registration page and rewrite URLs
       - name: Scrape registration page
         run: |
           mkdir -p dist
           node -e "
-          const scrape = require('website-scraper');
-          const PuppeteerPlugin = require('website-scraper-puppeteer');
+          const puppeteer = require('puppeteer');
+          const fs = require('fs');
           (async () => {
             try {
-              await scrape({
-                urls: ['https://ctxyouth.com/registration'],
-                directory: 'dist',
-                plugins: [new PuppeteerPlugin({
-                  launchOptions: { headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] },
-                  scrollToBottom: { timeout: 10000, viewportN: 10 },
-                  blockNavigation: true
-                })],
-                recursive: true,
-                maxDepth: 1,
-                filenameGenerator: 'bySiteStructure',
-                subdirectories: [
-                  { directory: 'img', extensions: ['.jpg', '.png', '.svg', '.gif', '.webp'] },
-                  { directory: 'js', extensions: ['.js'] },
-                  { directory: 'css', extensions: ['.css'] },
-                  { directory: 'fonts', extensions: ['.woff', '.woff2', '.ttf', '.eot'] }
-                ],
-                request: {
-                  headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-                }
-              });
-              console.log('Successfully scraped page and assets');
+              const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+              const page = await browser.newPage();
+              await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2', timeout: 60000 });
+              let content = await page.content();
+              // Rewrite absolute URLs to relative for ctxyouth.com
+              content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
+              fs.writeFileSync('dist/index.html', content);
+              await browser.close();
+              console.log('Successfully scraped page and saved HTML');
             } catch (error) {
               console.error('Error scraping page:', error);
               process.exit(1);
             }
           })();
           "
-        timeout-minutes: 5  # Limit scrape time
+        timeout-minutes: 5
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
@@ -76,5 +63,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
           destination_dir: .
-          keep_files: false  # Overwrite existing files
-          commit_message: Sync ctxyouth.com/registration with assets to index.html
+          keep_files: false
+          commit_message: Sync ctxyouth.com/registration to index.html
