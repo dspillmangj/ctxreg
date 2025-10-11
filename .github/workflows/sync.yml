@@ -16,6 +16,8 @@ jobs:
       # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Set up Node.js
       - name: Set up Node.js
@@ -32,16 +34,16 @@ jobs:
       - name: Scrape registration page and assets
         run: |
           mkdir -p dist
-          node -e '''
-            const puppeteer = require("puppeteer");
-            const axios = require("axios");
-            const fs = require("fs").promises;
-            const path = require("path");
+          node -e "$(cat << 'EOF'
+            const puppeteer = require('puppeteer');
+            const axios = require('axios');
+            const fs = require('fs').promises;
+            const path = require('path');
             (async () => {
               try {
-                const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+                const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
                 const page = await browser.newPage();
-                await page.goto("https://ctxyouth.com/registration", { waitUntil: "networkidle2", timeout: 60000 });
+                await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2', timeout: 60000 });
                 
                 // Get HTML
                 let content = await page.content();
@@ -50,17 +52,17 @@ jobs:
                 const assets = await page.evaluate(() => {
                   const urls = [];
                   const selectors = [
-                    "link[href]",
-                    "script[src]",
-                    "img[src]",
-                    "source[src]",
-                    "font[src]"
+                    'link[href]',
+                    'script[src]',
+                    'img[src]',
+                    'source[src]',
+                    'font[src]'
                   ];
                   selectors.forEach(sel => {
                     document.querySelectorAll(sel).forEach(el => {
                       const url = el.href || el.src;
-                      if (url && url.startsWith("https://ctxyouth.com/") && !url.includes("/feed/") && !url.includes("/wp-json/")) {
-                        urls.push(url.split("?")[0]);
+                      if (url && url.startsWith('https://ctxyouth.com/') && !url.includes('/feed/') && !url.includes('/wp-json/')) {
+                        urls.push(url.split('?')[0]);
                       }
                     });
                   });
@@ -70,39 +72,39 @@ jobs:
                 // Download assets and rewrite URLs
                 for (const assetUrl of assets) {
                   try {
-                    const relativePath = assetUrl.replace("https://ctxyouth.com/", "").split("?")[0];
-                    const filePath = path.join("dist", relativePath);
-                    console.log("Downloading:", assetUrl, "to", relativePath);
+                    const relativePath = assetUrl.replace('https://ctxyouth.com/', '').split('?')[0];
+                    const filePath = path.join('dist', relativePath);
+                    console.log('Downloading:', assetUrl, 'to', relativePath);
                     await fs.mkdir(path.dirname(filePath), { recursive: true });
-                    const response = await axios.get(assetUrl, { responseType: "arraybuffer", timeout: 10000 });
+                    const response = await axios.get(assetUrl, { responseType: 'arraybuffer', timeout: 10000 });
                     await fs.writeFile(filePath, response.data);
-                    console.log("Downloaded:", relativePath);
+                    console.log('Downloaded:', relativePath);
                     // Rewrite this specific asset URL in HTML
-                    const escapedUrl = assetUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\\\$&");
-                    content = content.replace(new RegExp(escapedUrl.split("?")[0], "g"), `/${relativePath}`);
+                    const escapedUrl = assetUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
+                    content = content.replace(new RegExp(escapedUrl.split('?')[0], 'g'), `/${relativePath}`);
                   } catch (err) {
-                    console.error("Failed to download:", assetUrl, err.message);
+                    console.error('Failed to download:', assetUrl, err.message);
                   }
                 }
                 
                 // Single rewrite for remaining ctxyouth.com URLs
-                content = content.replace(/https:\/\/ctxyouth\.com\//g, "/");
-                content = content.replace(/"/g, '"'); // Ensure proper quote handling
+                content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
                 
                 // Save HTML to dist root
-                await fs.writeFile("dist/index.html", content);
+                await fs.writeFile('dist/index.html', content);
                 
                 // Debug: List dist contents
-                const files = await fs.readdir("dist", { recursive: true });
-                console.log("Dist contents:", files);
+                const files = await fs.readdir('dist', { recursive: true });
+                console.log('Dist contents:', files);
                 await browser.close();
-                console.log("Successfully scraped page and saved HTML with assets");
+                console.log('Successfully scraped page and saved HTML with assets');
               } catch (error) {
-                console.error("Error scraping page:", error);
+                console.error('Error scraping page:', error);
                 process.exit(1);
               }
             })();
-          '''
+          EOF
+          )"
         timeout-minutes: 5
 
       # Deploy to GitHub Pages
