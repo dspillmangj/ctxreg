@@ -87,10 +87,8 @@ jobs:
                   }
                 }
                 
-                // Rewrite base URL in HTML
+                // Rewrite base URL in HTML for non-asset URLs
                 content = content.replace(/https:\/\/ctxyouth\.com\//g, '/ctxreg/');
-                // Handle relative URLs starting with /
-                content = content.replace(/(href|src|srcset)="\/([^"]*)"/g, '$1="/ctxreg/$2"');
                 
                 // Save HTML to dist root
                 await fs.writeFile('dist/index.html', content);
