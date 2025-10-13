@@ -43,13 +43,27 @@ jobs:
               try {
                 const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
                 const page = await browser.newPage();
+                // Set viewport to simulate desktop
+                await page.setViewport({ width: 1280, height: 800 });
+                // Intercept network requests to capture additional assets
+                await page.setRequestInterception(true);
+                const additionalAssets = [];
+                page.on('request', request => {
+                  const url = request.url();
+                  if (url.startsWith('https://ctxyouth.com/') && !url.includes('/feed/') && !url.includes('/wp-json/')) {
+                    additionalAssets.push(url.split('?')[0]);
+                  }
+                  request.continue();
+                });
+                // Load page and wait for dynamic content
                 await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2', timeout: 60000 });
+                await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s for dynamic content
                 
                 // Get HTML
                 let content = await page.content();
                 
-                // Extract asset URLs
-                const assets = await page.evaluate(() => {
+                // Extract asset URLs from DOM
+                const domAssets = await page.evaluate(() => {
                   const urls = [];
                   const selectors = [
                     'link[href]',
@@ -60,7 +74,8 @@ jobs:
                     'source[srcset]',
                     'font[src]',
                     '*[data-src]',
-                    '*[data-lazy-src]'
+                    '*[data-lazy-src]',
+                    'style'
                   ];
                   selectors.forEach(sel => {
                     document.querySelectorAll(sel).forEach(el => {
@@ -70,8 +85,24 @@ jobs:
                       }
                     });
                   });
+                  // Extract CSS background images
+                  const styles = Array.from(document.querySelectorAll('style, [style]'));
+                  styles.forEach(el => {
+                    const styleText = el.innerText || el.getAttribute('style') || '';
+                    const matches = styleText.match(/url\(['"]?(https:\/\/ctxyouth\.com\/[^)'"]+)['"]?\)/g);
+                    if (matches) {
+                      matches.forEach(match => {
+                        const urlMatch = match.match(/https:\/\/ctxyouth\.com\/[^)'"]+/);
+                        if (urlMatch) urls.push(urlMatch[0]);
+                      });
+                    }
+                  });
                   return [...new Set(urls)];
                 });
+                
+                // Combine DOM and network assets
+                const assets = [...new Set([...domAssets, ...additionalAssets])];
+                console.log('Assets to download:', assets);
                 
                 // Download assets and rewrite URLs
                 for (const assetUrl of assets) {
@@ -85,14 +116,14 @@ jobs:
                     console.log('Downloaded:', relativePath);
                     // Rewrite this specific asset URL in HTML
                     const escapedUrl = assetUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
-                    content = content.replace(new RegExp(escapedUrl.split('?')[0], 'g'), `/ctxreg/${relativePath}`);
+                    content = content.replace(new RegExp(escapedUrl.split('?')[0], 'g'), `/${relativePath}`);
                   } catch (err) {
                     console.error('Failed to download:', assetUrl, err.message);
                   }
                 }
                 
                 // Rewrite base URL in HTML for non-navigation attributes (exclude <a href>)
-                content = content.replace(/(src|srcset|data-src|data-lazy-src)="https:\/\/ctxyouth\.com\/([^"]*)"/g, '$1="/ctxreg/$2"');
+                content = content.replace(/(src|srcset|data-src|data-lazy-src)="https:\/\/ctxyouth\.com\/([^"]*)"/g, '$1="/$2"');
                 
                 // Save HTML to dist root
                 await fs.writeFile('dist/index.html', content);
@@ -101,9 +132,9 @@ jobs:
                 const files = await fs.readdir('dist', { recursive: true });
                 console.log('Dist contents:', files);
                 await browser.close();
-                console.log('Successfully scraped page and saved HTML with assets');
+                console.log('Successfully scraped registration page and saved HTML with assets');
               } catch (error) {
-                console.error('Error scraping page:', error);
+                console.error('Error scraping registration page:', error);
                 process.exit(1);
               }
             })();
