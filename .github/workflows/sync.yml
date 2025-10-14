@@ -142,12 +142,13 @@ jobs:
           )"
         timeout-minutes: 5
 
+      # Add CNAME file for custom domain
+      - name: Add CNAME file
+        run: echo "registration.ctxyouth.com" > dist/CNAME
+
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
-          destination_dir: .
-          keep_files: false
-          commit_message: Sync ctxyouth.com/registration with assets to index.html
