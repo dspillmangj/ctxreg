@@ -61,7 +61,7 @@ jobs:
 
               await page.setViewport({ width: 1280, height: 800 });
 
-              const additionalAssets = new Set();
+              const additionalAssets = [];
 
               await page.setRequestInterception(true);
               page.on('request', request => {
@@ -70,7 +70,7 @@ jobs:
                     !url.includes('/feed/') &&
                     !url.includes('/wp-json/') &&
                     !url.includes('.php')) {
-                  additionalAssets.add(url.split('?')[0]);
+                  additionalAssets.push(url.split('?')[0]);
                 }
                 request.continue();
               });
@@ -79,44 +79,49 @@ jobs:
                 waitUntil: 'networkidle2',
                 timeout: 90000
               });
-              await page.waitForTimeout(6000); // let lazy-load finish
+              // FIXED: Use Promise-based setTimeout (compatible with v24+)
+              await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s for lazy-load
 
               let content = await page.content();
 
               // Extract assets from the DOM
               const domAssets = await page.evaluate(() => {
-                const urls = new Set();
+                const urls = [];
                 const selectors = [
-                  'link[href]', 'script[src]', 'img[src]', 'img[srcset]',
-                  'source[src]', 'source[srcset]', '*[data-src]', '*[data-lazy-src]'
+                  'link[href]',
+                  'script[src]',
+                  'img[src]',
+                  'img[srcset]',
+                  'source[src]',
+                  'source[srcset]',
+                  '*[data-src]',
+                  '*[data-lazy-src]',
+                  'style'
                 ];
                 selectors.forEach(sel => {
                   document.querySelectorAll(sel).forEach(el => {
-                    [el.href, el.src, el.srcset, el.dataset.src, el.dataset.lazySrc]
-                      .filter(Boolean)
-                      .forEach(u => {
-                        if (u.startsWith('.com/')) u = 'https://ctxyouth.com' + u;
-                        if (u.startsWith('https://ctxyouth.com/') &&
-                            !u.includes('/feed/') && !u.includes('/wp-json/')) {
-                          urls.add(u.split('?')[0].split('#')[0]);
-                        }
-                      });
+                    const url = el.href || el.src || el.srcset || el.dataset.src || el.dataset.lazySrc;
+                    if (url && url.startsWith('https://ctxyouth.com/') &&
+                        !url.includes('/feed/') && !url.includes('/wp-json/')) {
+                      urls.push(url.split('?')[0].split('#')[0]);
+                    }
                   });
                 });
 
                 // background images in inline styles / <style> tags
-                document.querySelectorAll('style, [style]').forEach(el => {
-                  const css = el.textContent + el.getAttribute('style');
-                  const matches = css.match(/url\(['"]?(https:\/\/ctxyouth\.com[^)'"]+)['"]?\)/gi);
+                const styles = Array.from(document.querySelectorAll('style, [style]'));
+                styles.forEach(el => {
+                  const styleText = el.innerText || el.getAttribute('style') || '';
+                  const matches = styleText.match(/url\(['"]?(https:\/\/ctxyouth\.com\/[^)'"]+)['"]?\)/g);
                   if (matches) {
-                    matches.forEach(m => {
-                      const url = m.match(/https:\/\/ctxyouth\.com[^)'"]+/i)[0];
-                      urls.add(url.split('?')[0]);
+                    matches.forEach(match => {
+                      const urlMatch = match.match(/https:\/\/ctxyouth\.com\/[^)'"]+/);
+                      if (urlMatch) urls.push(urlMatch[0].split('?')[0]);
                     });
                   }
                 });
 
-                return Array.from(urls);
+                return [...new Set(urls)];
               });
 
               const allAssets = [...new Set([...domAssets, ...additionalAssets])];
@@ -141,7 +146,7 @@ jobs:
                     success = true;
                     break;
                   } catch (err) {
-                    if (i === 3) console.error('Failed after 3 attempts:', assetUrl);
+                    if (i === 3) console.error('Failed after 3 attempts:', assetUrl, err.message);
                     else await new Promise(r => setTimeout(r, 2000));
                   }
                 }
