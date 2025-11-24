@@ -3,150 +3,168 @@ name: Sync Registration Page to GitHub Pages
 on:
   push:
     branches:
-      - main  # Trigger on push to main branch
-  workflow_dispatch:  # Allow manual trigger
+      - main
+  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+    - cron: '0 0 * * *' # Daily at midnight UTC
 
 jobs:
   sync-registration:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # Prevent hanging
+    timeout-minutes: 15
+
     steps:
-      # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Install Puppeteer and axios
       - name: Install dependencies
         run: npm install puppeteer@24.15.0 axios@1.7.7
-        timeout-minutes: 3
 
-      # Scrape the registration page and download assets
-      - name: Scrape registration page and assets
+      - name: Scrape registration page with scrape-key header
+        env:
+          SCRAPE_KEY: ${{ secrets.SCRAPE_KEY }}   # ← create this secret in your repo
         run: |
           mkdir -p dist
+
           node -e "$(cat << 'EOF'
             const puppeteer = require('puppeteer');
             const axios = require('axios');
             const fs = require('fs').promises;
             const path = require('path');
+
             (async () => {
-              try {
-                const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-                const page = await browser.newPage();
-                // Set viewport to simulate desktop
-                await page.setViewport({ width: 1280, height: 800 });
-                // Intercept network requests to capture additional assets
-                await page.setRequestInterception(true);
-                const additionalAssets = [];
-                page.on('request', request => {
-                  const url = request.url();
-                  if (url.startsWith('https://ctxyouth.com/') && !url.includes('/feed/') && !url.includes('/wp-json/')) {
-                    additionalAssets.push(url.split('?')[0]);
-                  }
-                  request.continue();
-                });
-                // Load page and wait for dynamic content
-                await page.goto('https://ctxyouth.com/registration', { waitUntil: 'networkidle2', timeout: 60000 });
-                await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s for dynamic content
-                
-                // Get HTML
-                let content = await page.content();
-                
-                // Extract asset URLs from DOM
-                const domAssets = await page.evaluate(() => {
-                  const urls = [];
-                  const selectors = [
-                    'link[href]',
-                    'script[src]',
-                    'img[src]',
-                    'img[srcset]',
-                    'source[src]',
-                    'source[srcset]',
-                    'font[src]',
-                    '*[data-src]',
-                    '*[data-lazy-src]',
-                    'style'
-                  ];
-                  selectors.forEach(sel => {
-                    document.querySelectorAll(sel).forEach(el => {
-                      const url = el.href || el.src || el.srcset || el.dataset.src || el.dataset.lazySrc;
-                      if (url && url.startsWith('https://ctxyouth.com/') && !url.includes('/feed/') && !url.includes('/wp-json/')) {
-                        urls.push(url.split('?')[0]);
-                      }
-                    });
-                  });
-                  // Extract CSS background images
-                  const styles = Array.from(document.querySelectorAll('style, [style]'));
-                  styles.forEach(el => {
-                    const styleText = el.innerText || el.getAttribute('style') || '';
-                    const matches = styleText.match(/url\(['"]?(https:\/\/ctxyouth\.com\/[^)'"]+)['"]?\)/g);
-                    if (matches) {
-                      matches.forEach(match => {
-                        const urlMatch = match.match(/https:\/\/ctxyouth\.com\/[^)'"]+/);
-                        if (urlMatch) urls.push(urlMatch[0]);
-                      });
-                    }
-                  });
-                  return [...new Set(urls)];
-                });
-                
-                // Combine DOM and network assets
-                const assets = [...new Set([...domAssets, ...additionalAssets])];
-                console.log('Assets to download:', assets);
-                
-                // Download assets and rewrite URLs
-                for (const assetUrl of assets) {
-                  try {
-                    const relativePath = assetUrl.replace('https://ctxyouth.com/', '').split('?')[0];
-                    const filePath = path.join('dist', relativePath);
-                    console.log('Downloading:', assetUrl, 'to', relativePath);
-                    await fs.mkdir(path.dirname(filePath), { recursive: true });
-                    const response = await axios.get(assetUrl, { responseType: 'arraybuffer', timeout: 10000 });
-                    await fs.writeFile(filePath, response.data);
-                    console.log('Downloaded:', relativePath);
-                    // Rewrite this specific asset URL in HTML
-                    const escapedUrl = assetUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&');
-                    content = content.replace(new RegExp(escapedUrl.split('?')[0], 'g'), `/${relativePath}`);
-                  } catch (err) {
-                    console.error('Failed to download:', assetUrl, err.message);
-                  }
-                }
-                
-                // Rewrite base URL in HTML for non-navigation attributes (exclude <a href>)
-                content = content.replace(/(src|srcset|data-src|data-lazy-src)="https:\/\/ctxyouth\.com\/([^"]*)"/g, '$1="/$2"');
-                
-                // Save HTML to dist root
-                await fs.writeFile('dist/index.html', content);
-                
-                // Debug: List dist contents
-                const files = await fs.readdir('dist', { recursive: true });
-                console.log('Dist contents:', files);
-                await browser.close();
-                console.log('Successfully scraped registration page and saved HTML with assets');
-              } catch (error) {
-                console.error('Error scraping registration page:', error);
+              const KEY = process.env.SCRAPE_KEY;
+              if (!KEY) {
+                console.error('SCRAPE_KEY secret is missing!');
                 process.exit(1);
               }
+
+              const browser = await puppeteer.launch({
+                headless: 'new',
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+              });
+
+              const page = await browser.newPage();
+
+              // Make it look like a real browser + send the magic header
+              await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
+              await page.setExtraHTTPHeaders({
+                'scrape-key': KEY
+              });
+
+              await page.setViewport({ width: 1280, height: 800 });
+
+              const additionalAssets = new Set();
+
+              await page.setRequestInterception(true);
+              page.on('request', request => {
+                const url = request.url();
+                if (url.startsWith('https://ctxyouth.com/') &&
+                    !url.includes('/feed/') &&
+                    !url.includes('/wp-json/') &&
+                    !url.includes('.php')) {
+                  additionalAssets.add(url.split('?')[0]);
+                }
+                request.continue();
+              });
+
+              await page.goto('https://ctxyouth.com/registration', {
+                waitUntil: 'networkidle2',
+                timeout: 90000
+              });
+              await page.waitForTimeout(6000); // let lazy-load finish
+
+              let content = await page.content();
+
+              // Extract assets from the DOM
+              const domAssets = await page.evaluate(() => {
+                const urls = new Set();
+                const selectors = [
+                  'link[href]', 'script[src]', 'img[src]', 'img[srcset]',
+                  'source[src]', 'source[srcset]', '*[data-src]', '*[data-lazy-src]'
+                ];
+                selectors.forEach(sel => {
+                  document.querySelectorAll(sel).forEach(el => {
+                    [el.href, el.src, el.srcset, el.dataset.src, el.dataset.lazySrc]
+                      .filter(Boolean)
+                      .forEach(u => {
+                        if (u.startsWith('.com/')) u = 'https://ctxyouth.com' + u;
+                        if (u.startsWith('https://ctxyouth.com/') &&
+                            !u.includes('/feed/') && !u.includes('/wp-json/')) {
+                          urls.add(u.split('?')[0].split('#')[0]);
+                        }
+                      });
+                  });
+                });
+
+                // background images in inline styles / <style> tags
+                document.querySelectorAll('style, [style]').forEach(el => {
+                  const css = el.textContent + el.getAttribute('style');
+                  const matches = css.match(/url\(['"]?(https:\/\/ctxyouth\.com[^)'"]+)['"]?\)/gi);
+                  if (matches) {
+                    matches.forEach(m => {
+                      const url = m.match(/https:\/\/ctxyouth\.com[^)'"]+/i)[0];
+                      urls.add(url.split('?')[0]);
+                    });
+                  }
+                });
+
+                return Array.from(urls);
+              });
+
+              const allAssets = [...new Set([...domAssets, ...additionalAssets])];
+              console.log(`Found ${allAssets.length} assets to download`);
+
+              // Download assets (with the same header so Cloudflare allows them too)
+              for (const assetUrl of allAssets) {
+                const relativePath = assetUrl.replace('https://ctxyouth.com/', '').split('?')[0];
+                const filePath = path.join('dist', relativePath);
+
+                let success = false;
+                for (let i = 1; i <= 3; i++) {
+                  try {
+                    const response = await axios.get(assetUrl, {
+                      responseType: 'arraybuffer',
+                      timeout: 15000,
+                      headers: { 'scrape-key': KEY }
+                    });
+                    await fs.mkdir(path.dirname(filePath), { recursive: true });
+                    await fs.writeFile(filePath, response.data);
+                    console.log('Downloaded:', relativePath);
+                    success = true;
+                    break;
+                  } catch (err) {
+                    if (i === 3) console.error('Failed after 3 attempts:', assetUrl);
+                    else await new Promise(r => setTimeout(r, 2000));
+                  }
+                }
+
+                if (success) {
+                  const escaped = assetUrl.split('?')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  content = content.replace(new RegExp(escaped, 'g'), `/${relativePath}`);
+                }
+              }
+
+              // Final cleanup of any remaining absolute URLs
+              content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
+
+              await fs.writeFile('dist/index.html', content);
+              console.log('Scraping complete → dist/index.html created');
+              await browser.close();
             })();
           EOF
           )"
-        timeout-minutes: 5
 
-      # Add CNAME file for custom domain
       - name: Add CNAME file
         run: echo "registration.ctxyouth.com" > dist/CNAME
 
-      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
