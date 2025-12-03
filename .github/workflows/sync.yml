@@ -162,6 +162,9 @@ jobs:
 
               content = content.replace(/\/youre-registered/g, 'https://ctxyouth.com/youre-registered');
               content = content.replace(/\/faq/g, 'https://ctxyouth.com/faq');
+              content = content.replace(/\/contact-2/g, 'https://ctxyouth.com/contact-2');
+              content = content.replace(/\/services-2/g, 'https://ctxyouth.com/services-2');
+              content = content.replace(/\/colorado-classic/g, 'https://ctxyouth.com/colorado-classic');
 
               await fs.writeFile('dist/index.html', content);
               console.log('Scraping complete → dist/index.html created');
