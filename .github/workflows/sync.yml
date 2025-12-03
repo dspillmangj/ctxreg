@@ -165,7 +165,8 @@ jobs:
               content = content.replace(/\/contact-2/g, 'https://ctxyouth.com/contact-2');
               content = content.replace(/\/services-2/g, 'https://ctxyouth.com/services-2');
               content = content.replace(/\/colorado-classic/g, 'https://ctxyouth.com/colorado-classic');
-              content = content.replace(//wp-content/uploads/2025/09/Logo-White-scaled-768x654.webp/g, 'https://ctxyouth.com/wp-content/uploads/2025/09/Logo-White-scaled-768x654.webp');
+              content = content.replace(/wp-content\/uploads\/2025\/09\/Logo-White-scaled-768x654\.webp/g,
+  'https://ctxyouth.com/wp-content/uploads/2025/09/Logo-White-scaled-768x654.webp');
 
               await fs.writeFile('dist/index.html', content);
               console.log('Scraping complete → dist/index.html created');
