@@ -160,6 +160,8 @@ jobs:
               // Final cleanup of any remaining absolute URLs
               content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
 
+              content = content.replace(/\/youre-registered/g, 'https://ctxyouth.com/youre-registered');
+
               await fs.writeFile('dist/index.html', content);
               console.log('Scraping complete → dist/index.html created');
               await browser.close();
