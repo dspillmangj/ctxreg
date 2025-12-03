@@ -161,6 +161,7 @@ jobs:
               content = content.replace(/https:\/\/ctxyouth\.com\//g, '/');
 
               content = content.replace(/\/youre-registered/g, 'https://ctxyouth.com/youre-registered');
+              content = content.replace(/\/faq/g, 'https://ctxyouth.com/faq');
 
               await fs.writeFile('dist/index.html', content);
               console.log('Scraping complete → dist/index.html created');
