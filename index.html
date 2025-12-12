@@ -18,7 +18,7 @@
 <meta property="og:title" content="Registration - CTX 2026: LEVEL UP!">
 <meta property="og:description" content="Registration Have you read the Information Page? It will be helpful to read before registering. Click here to jump to the Pricing &amp; information page. Important">
 <meta property="article:published_time" content="2025-09-19T16:21:23-06:00">
-<meta property="article:modified_time" content="2025-12-03T16:19:43+00:00">
+<meta property="article:modified_time" content="2025-12-11T23:59:11+00:00">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Registration - CTX 2026: LEVEL UP!">
 <meta name="twitter:description" content="Registration Have you read the Information Page? It will be helpful to read before registering. Click here to jump to the Pricing &amp; information page. Important">
@@ -94,9 +94,9 @@ img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 </style>
 <link rel="stylesheet" id="hfe-style-css" href="/wp-content/plugins/header-footer-elementor/assets/css/header-footer-elementor.css?ver=2.7.0" media="all">
 <link rel="stylesheet" id="elementor-frontend-css" href="/wp-content/plugins/elementor/assets/css/frontend.min.css?ver=3.33.4" media="all">
-<link rel="stylesheet" id="elementor-post-1319-css" href="/wp-content/uploads/elementor/css/post-1319.css?ver=1765294106" media="all">
+<link rel="stylesheet" id="elementor-post-1319-css" href="/wp-content/uploads/elementor/css/post-1319.css?ver=1765466836" media="all">
 <link rel="stylesheet" id="widget-heading-css" href="/wp-content/plugins/elementor/assets/css/widget-heading.min.css?ver=3.33.4" media="all">
-<link rel="stylesheet" id="elementor-post-1542-css" href="/wp-content/uploads/elementor/css/post-1542.css?ver=1765303039" media="all">
+<link rel="stylesheet" id="elementor-post-1542-css" href="/wp-content/uploads/elementor/css/post-1542.css?ver=1765501399" media="all">
 <link rel="stylesheet" id="ea11y-widget-fonts-css" href="/wp-content/plugins/pojo-accessibility/assets/build/fonts.css?ver=3.9.1" media="all">
 <link rel="stylesheet" id="ea11y-skip-link-css" href="/wp-content/plugins/pojo-accessibility/assets/build/skip-link.css?ver=3.9.1" media="all">
 <link rel="stylesheet" id="hfe-elementor-icons-css" href="/wp-content/plugins/elementor/assets/lib/eicons/css/elementor-icons.min.css?ver=5.34.0" media="all">
@@ -549,6 +549,11 @@ flexibility(document.documentElement);
                 <input type="email" id="guardianEmail" name="guardianEmail">
                 <div class="error" id="guardianEmailError">Please enter a valid guardian email address.</div>
             </div>
+            <div class="form-group guardian-field hidden">
+    <label for="guardianDOB">Guardian Date of Birth (MM/DD/YYYY)</label>
+    <input type="text" id="guardianDOB" name="guardianDOB" pattern="\d{2}/\d{2}/\d{4}" placeholder="MM/DD/YYYY">
+    <div class="error" id="guardianDOBError">Please enter guardian's date of birth (MM/DD/YYYY).</div>
+</div>
             <div class="form-group">
                 <label for="emergencyFirstName">Emergency Contact First Name</label>
                 <input type="text" id="emergencyFirstName" name="emergencyFirstName" required="">
@@ -588,6 +593,30 @@ flexibility(document.documentElement);
                 <input type="number" id="weight" name="weight">
                 <div class="error" id="weightError">Please enter a valid weight.</div>
             </div>
+                <div class="form-group powderhorn-field hidden">
+                    <label for="shoeSize">Shoe Size (Adult)</label>
+    <select id="shoeSize" name="shoeSize">
+        <option value="">Select shoe size...</option>
+        <option value="6">6</option>
+        <option value="6.5">6.5</option>
+        <option value="7">7</option>
+        <option value="7.5">7.5</option>
+        <option value="8">8</option>
+        <option value="8.5">8.5</option>
+        <option value="9">9</option>
+        <option value="9.5">9.5</option>
+        <option value="10">10</option>
+        <option value="10.5">10.5</option>
+        <option value="11">11</option>
+        <option value="11.5">11.5</option>
+        <option value="12">12</option>
+        <option value="12.5">12.5</option>
+        <option value="13">13</option>
+        <option value="14">14</option>
+        <option value="15">15</option>
+    </select>
+    <div class="error" id="shoeSizeError">Please select your shoe size.</div>
+</div>
             <div class="form-group powderhorn-field hidden">
                 <label for="skierLevel">Skier Level</label>
                 <select id="skierLevel" name="skierLevel">
@@ -958,16 +987,16 @@ async function fetchTeams() {
                 'powderhorn', 'coloradoClassic'
             ];
 
-            if (isMinor) {
-                fieldsToValidate.push('guardianFirstName', 'guardianLastName', 'guardianPhone', 'guardianEmail');
-            }
+if (isMinor) {
+    fieldsToValidate.push('guardianFirstName', 'guardianLastName', 'guardianPhone', 'guardianEmail', 'guardianDOB');
+}
 
             if (powderhorn || coloradoClassic) {
                 fieldsToValidate.push('height');
             }
 
             if (powderhorn) {
-                fieldsToValidate.push('weight', 'skierLevel', 'skiSnowboard');
+                 fieldsToValidate.push('weight', 'skierLevel', 'skiSnowboard', 'shoeSize');
             }
 
             if (coloradoClassic) {
@@ -1224,26 +1253,30 @@ async function fetchTeams() {
             }
         });
 
-        document.getElementById('age').addEventListener('input', (e) => {
-            const isMinor = parseInt(e.target.value || 0, 10) < 18;
-            document.querySelectorAll('.guardian-field').forEach(field => {
-                field.classList.toggle('hidden', !isMinor);
-                const input = field.querySelector('input');
-                input.required = isMinor;
-                showError(input.id, !input.value && isMinor);
-            });
-            validateField(e.target);
-        });
+document.getElementById('age').addEventListener('input', (e) => {
+    const isMinor = parseInt(e.target.value || 0, 10) < 18;
+    document.querySelectorAll('.guardian-field').forEach(field => {
+        field.classList.toggle('hidden', !isMinor);
+        const input = field.querySelector('input');
+        if (input) {
+            input.required = isMinor;
+            showError(input.id, !input.value && isMinor);
+        }
+    });
+    validateField(e.target);
+});
 
         document.getElementById('powderhorn').addEventListener('change', (e) => {
             const powderhorn = e.target.value === 'yes';
             const coloradoClassic = document.getElementById('coloradoClassic').value === 'yes';
             const isEvent = powderhorn || coloradoClassic;
             document.querySelectorAll('.powderhorn-field').forEach(field => {
-                field.classList.toggle('hidden', !powderhorn);
-                const input = field.querySelector('input, select');
-                input.required = powderhorn;
-                showError(input.id, !input.value && powderhorn);
+              field.classList.toggle('hidden', !powderhorn);
+              const input = field.querySelector('input, select');
+              if (input) {
+                  input.required = powderhorn;
+                  showError(input.id, !input.value && powderhorn);
+              }
             });
             document.querySelectorAll('.event-field').forEach(field => {
                 field.classList.toggle('hidden', !isEvent);
@@ -1297,8 +1330,8 @@ async function fetchTeams() {
                 .forEach(field => field.classList.add('hidden'));
         };
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ac110423f83d7a7',t:'MTc2NTQxNTAxOQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;839f60ea34e44162b8d0798a1be61a06&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
-
+<script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;839f60ea34e44162b8d0798a1be61a06&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ac94d1ac9228012',t:'MTc2NTUwMTM5OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 				</div>
 					</div>
 				</div>
@@ -1445,7 +1478,7 @@ var starter_templates_zip_preview = {"AstColorPaletteVarPrefix":"--ast-global-co
 <script src="/wp-content/plugins/elementor/assets/js/frontend-modules.min.js?ver=3.33.4" id="elementor-frontend-modules-js"></script>
 <script src="/wp-includes/js/jquery/ui/core.min.js?ver=1.13.3" id="jquery-ui-core-js"></script>
 <script id="elementor-frontend-js-before">
-var elementorFrontendConfig = {"environmentMode":{"edit":false,"wpPreview":false,"isScriptDebug":false},"i18n":{"shareOnFacebook":"Share on Facebook","shareOnTwitter":"Share on Twitter","pinIt":"Pin it","download":"Download","downloadImage":"Download image","fullscreen":"Fullscreen","zoom":"Zoom","share":"Share","playVideo":"Play Video","previous":"Previous","next":"Next","close":"Close","a11yCarouselPrevSlideMessage":"Previous slide","a11yCarouselNextSlideMessage":"Next slide","a11yCarouselFirstSlideMessage":"This is the first slide","a11yCarouselLastSlideMessage":"This is the last slide","a11yCarouselPaginationBulletMessage":"Go to slide"},"is_rtl":false,"breakpoints":{"xs":0,"sm":480,"md":768,"lg":1025,"xl":1440,"xxl":1600},"responsive":{"breakpoints":{"mobile":{"label":"Mobile Portrait","value":767,"default_value":767,"direction":"max","is_enabled":true},"mobile_extra":{"label":"Mobile Landscape","value":880,"default_value":880,"direction":"max","is_enabled":false},"tablet":{"label":"Tablet Portrait","value":1024,"default_value":1024,"direction":"max","is_enabled":true},"tablet_extra":{"label":"Tablet Landscape","value":1200,"default_value":1200,"direction":"max","is_enabled":false},"laptop":{"label":"Laptop","value":1366,"default_value":1366,"direction":"max","is_enabled":false},"widescreen":{"label":"Widescreen","value":2400,"default_value":2400,"direction":"min","is_enabled":false}},"hasCustomBreakpoints":false},"version":"3.33.4","is_static":false,"experimentalFeatures":{"e_font_icon_svg":true,"additional_custom_breakpoints":true,"container":true,"e_optimized_markup":true,"nested-elements":true,"home_screen":true,"global_classes_should_enforce_capabilities":true,"e_variables":true,"cloud-library":true,"e_opt_in_v4_page":true,"import-export-customization":true},"urls":{"assets":"https:\/\/ctxyouth.com\/wp-content\/plugins\/elementor\/assets\/","ajaxurl":"https:\/\/ctxyouth.com\/wp-admin\/admin-ajax.php","uploadUrl":"https:\/\/ctxyouth.com\/wp-content\/uploads"},"nonces":{"floatingButtonsClickTracking":"29fe93433e"},"swiperClass":"swiper","settings":{"page":[],"editorPreferences":[]},"kit":{"active_breakpoints":["viewport_mobile","viewport_tablet"],"global_image_lightbox":"yes","lightbox_enable_counter":"yes","lightbox_enable_fullscreen":"yes","lightbox_enable_zoom":"yes","lightbox_enable_share":"yes","lightbox_title_src":"title","lightbox_description_src":"description"},"post":{"id":1542,"title":"Registration%20-%20CTX%202026%3A%20LEVEL%20UP%21","excerpt":"","featuredImage":false}};
+var elementorFrontendConfig = {"environmentMode":{"edit":false,"wpPreview":false,"isScriptDebug":false},"i18n":{"shareOnFacebook":"Share on Facebook","shareOnTwitter":"Share on Twitter","pinIt":"Pin it","download":"Download","downloadImage":"Download image","fullscreen":"Fullscreen","zoom":"Zoom","share":"Share","playVideo":"Play Video","previous":"Previous","next":"Next","close":"Close","a11yCarouselPrevSlideMessage":"Previous slide","a11yCarouselNextSlideMessage":"Next slide","a11yCarouselFirstSlideMessage":"This is the first slide","a11yCarouselLastSlideMessage":"This is the last slide","a11yCarouselPaginationBulletMessage":"Go to slide"},"is_rtl":false,"breakpoints":{"xs":0,"sm":480,"md":768,"lg":1025,"xl":1440,"xxl":1600},"responsive":{"breakpoints":{"mobile":{"label":"Mobile Portrait","value":767,"default_value":767,"direction":"max","is_enabled":true},"mobile_extra":{"label":"Mobile Landscape","value":880,"default_value":880,"direction":"max","is_enabled":false},"tablet":{"label":"Tablet Portrait","value":1024,"default_value":1024,"direction":"max","is_enabled":true},"tablet_extra":{"label":"Tablet Landscape","value":1200,"default_value":1200,"direction":"max","is_enabled":false},"laptop":{"label":"Laptop","value":1366,"default_value":1366,"direction":"max","is_enabled":false},"widescreen":{"label":"Widescreen","value":2400,"default_value":2400,"direction":"min","is_enabled":false}},"hasCustomBreakpoints":false},"version":"3.33.4","is_static":false,"experimentalFeatures":{"e_font_icon_svg":true,"additional_custom_breakpoints":true,"container":true,"e_optimized_markup":true,"nested-elements":true,"home_screen":true,"global_classes_should_enforce_capabilities":true,"e_variables":true,"cloud-library":true,"e_opt_in_v4_page":true,"import-export-customization":true},"urls":{"assets":"https:\/\/ctxyouth.com\/wp-content\/plugins\/elementor\/assets\/","ajaxurl":"https:\/\/ctxyouth.com\/wp-admin\/admin-ajax.php","uploadUrl":"https:\/\/ctxyouth.com\/wp-content\/uploads"},"nonces":{"floatingButtonsClickTracking":"01f0a4ee11"},"swiperClass":"swiper","settings":{"page":[],"editorPreferences":[]},"kit":{"active_breakpoints":["viewport_mobile","viewport_tablet"],"global_image_lightbox":"yes","lightbox_enable_counter":"yes","lightbox_enable_fullscreen":"yes","lightbox_enable_zoom":"yes","lightbox_enable_share":"yes","lightbox_title_src":"title","lightbox_description_src":"description"},"post":{"id":1542,"title":"Registration%20-%20CTX%202026%3A%20LEVEL%20UP%21","excerpt":"","featuredImage":false}};
 //# sourceURL=elementor-frontend-js-before
 </script>
 <script src="/wp-content/plugins/elementor/assets/js/frontend.min.js?ver=3.33.4" id="elementor-frontend-js"></script><span id="elementor-device-mode" class="elementor-screen-only"></span>
@@ -1460,12 +1493,12 @@ window.nfdPerformance = window.nfdPerformance || {};
         window.nfdPerformance.imageOptimization.lazyLoading = {"classes":["nfd-performance-not-lazy","a3-notlazy","disable-lazyload","no-lazy","no-lazyload","skip-lazy"],"attributes":["data-lazy-src","data-crazy-lazy=\"exclude\"","data-no-lazy","data-no-lazy=\"1\""]};
 //# sourceURL=nfd-performance-lazy-loader-js-before
 </script>
-<script src="/wp-content/plugins/bluehost-wordpress-plugin/vendor/newfold-labs/wp-module-performance/build/assets/image-lazy-loader.min.js?ver=1764821414" id="nfd-performance-lazy-loader-js"></script>
+<script src="/wp-content/plugins/bluehost-wordpress-plugin/vendor/newfold-labs/wp-module-performance/build/assets/image-lazy-loader.min.js?ver=1765422982" id="nfd-performance-lazy-loader-js"></script>
 <script id="linkprefetcher-js-before">
 window.LP_CONFIG = {"activeOnDesktop":true,"behavior":"mouseHover","hoverDelay":60,"instantClick":false,"activeOnMobile":true,"mobileBehavior":"touchstart","ignoreKeywords":"#,?","isMobile":false}
 //# sourceURL=linkprefetcher-js-before
 </script>
-<script src="/wp-content/plugins/bluehost-wordpress-plugin/vendor/newfold-labs/wp-module-performance/build/assets/link-prefetch.min.js?ver=4.9.0" id="linkprefetcher-js" defer=""></script>
+<script src="/wp-content/plugins/bluehost-wordpress-plugin/vendor/newfold-labs/wp-module-performance/build/assets/link-prefetch.min.js?ver=4.10.0" id="linkprefetcher-js" defer=""></script>
 			<script>
 			/(trident|msie)/i.test(navigator.userAgent)&&document.getElementById&&window.addEventListener&&window.addEventListener("hashchange",function(){var t,e=location.hash.substring(1);/^[A-z0-9_-]+$/.test(e)&&(t=document.getElementById(e))&&(/^(?:a|select|input|button|textarea)$/i.test(t.tagName)||(t.tabIndex=-1),t.focus())},!1);
 			</script>
